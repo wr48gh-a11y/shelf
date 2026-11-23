@@ -68,55 +68,87 @@ func renderIcon(size: Int) -> Data? {
         options: []
     )
 
-    // Draw 3 minimalist Whisper shelf rows + accent dots inside
-    let rowW = rect.width * 0.60
-    let rowH = rect.height * 0.135
-    let startX = rect.midX - rowW / 2
-    let dotColors: [CGColor] = [
-        CGColor(red: 0.22, green: 0.74, blue: 0.97, alpha: 1.0),
-        CGColor(red: 0.65, green: 0.55, blue: 0.98, alpha: 1.0),
-        CGColor(red: 0.20, green: 0.83, blue: 0.60, alpha: 1.0)
+    // Minimalist bookshelf: 4 upright Whisper spines + 1 slim leaning spine on a frosted glass ledge
+    let small = size < 64
+    let shelfTopY = rect.minY + rect.height * 0.33
+    let ledgeH = rect.height * (small ? 0.06 : 0.045)
+    let floorY = shelfTopY - ledgeH * 0.35 // bottoms embed slightly into the ledge
+
+    let spineW = rect.width * (small ? 0.125 : 0.085)
+    let slimW = rect.width * (small ? 0.075 : 0.055)
+    let gap = rect.width * (small ? 0.028 : 0.014)
+    let leanGap = rect.width * 0.045
+
+    let heights: [CGFloat] = [0.46, 0.36, 0.43, 0.32] // natural rhythm, tallest first
+    let spineColors: [(CGFloat, CGFloat, CGFloat)] = [
+        (0.22, 0.74, 0.97), // Sky
+        (0.65, 0.55, 0.98), // Violet
+        (0.20, 0.83, 0.60), // Emerald
+        (0.98, 0.76, 0.30)  // Amber
     ]
 
-    for i in 0..<3 {
-        let offsetY = rect.midY + CGFloat(1 - i) * (rowH + rect.height * 0.055) - rowH / 2
-        let pillRect = CGRect(x: startX, y: offsetY, width: rowW, height: rowH)
-        let pillPath = CGPath(roundedRect: pillRect, cornerWidth: rowH * 0.38, cornerHeight: rowH * 0.38, transform: nil)
+    let groupW = spineW * 4 + gap * 3 + leanGap + slimW
+    let startX = rect.midX - groupW / 2
 
-        ctx.addPath(pillPath)
-        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: i == 0 ? 0.16 : 0.09))
-        ctx.fillPath()
+    // Slim Rose spine leaning gently (~13 degrees) against the 4th book, drawn behind it
+    let standRect = CGRect(
+        x: startX + (spineW + gap) * 3 + spineW + leanGap,
+        y: floorY,
+        width: slimW,
+        height: rect.height * 0.29
+    )
+    let pivot = CGPoint(x: standRect.maxX, y: floorY)
+    var leanXform = CGAffineTransform(translationX: pivot.x, y: pivot.y)
+    leanXform = leanXform.rotated(by: 13 * .pi / 180)
+    leanXform = leanXform.translatedBy(x: -pivot.x, y: -pivot.y)
+    drawSpine(ctx, rect: standRect, base: (0.97, 0.46, 0.62), radius: slimW * 0.30, transform: leanXform, small: small, size: cgSize)
 
-        ctx.addPath(pillPath)
-        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: i == 0 ? 0.25 : 0.12))
-        ctx.setLineWidth(max(1, cgSize * 0.004))
-        ctx.strokePath()
-
-        // Whisper dot
-        let dotR = rowH * 0.24
-        let dotRect = CGRect(
-            x: pillRect.minX + rowH * 0.38,
-            y: pillRect.midY - dotR,
-            width: dotR * 2,
-            height: dotR * 2
-        )
-        ctx.setFillColor(dotColors[i])
-        ctx.fillEllipse(in: dotRect)
-
-        // Subtle label bar
-        let barW = rowW * (i == 0 ? 0.48 : (i == 1 ? 0.38 : 0.44))
-        let barH = rowH * 0.22
-        let barRect = CGRect(
-            x: dotRect.maxX + rowH * 0.30,
-            y: pillRect.midY - barH / 2,
-            width: barW,
-            height: barH
-        )
-        let barPath = CGPath(roundedRect: barRect, cornerWidth: barH / 2, cornerHeight: barH / 2, transform: nil)
-        ctx.addPath(barPath)
-        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: i == 0 ? 0.85 : 0.55))
-        ctx.fillPath()
+    for (i, hFrac) in heights.enumerated() {
+        let spineRect = CGRect(x: startX + (spineW + gap) * CGFloat(i), y: floorY, width: spineW, height: rect.height * hFrac)
+        drawSpine(ctx, rect: spineRect, base: spineColors[i], radius: spineW * 0.26, transform: nil, small: small, size: cgSize)
     }
+
+    // Frosted glass shelf ledge across the lower third, luminous white/blue with a top specular highlight
+    let ledgeRect = CGRect(
+        x: rect.minX + rect.width * 0.07,
+        y: shelfTopY,
+        width: rect.width * 0.86,
+        height: ledgeH
+    )
+    let ledgePath = CGPath(roundedRect: ledgeRect, cornerWidth: ledgeH / 2, cornerHeight: ledgeH / 2, transform: nil)
+
+    ctx.saveGState()
+    ctx.addPath(ledgePath)
+    ctx.clip()
+    let ledgeColors = [
+        CGColor(red: 1, green: 1, blue: 1, alpha: 0.34),
+        CGColor(red: 0.55, green: 0.72, blue: 1.0, alpha: 0.10)
+    ] as CFArray
+    let ledgeGrad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: ledgeColors, locations: [0, 1])!
+    ctx.drawLinearGradient(
+        ledgeGrad,
+        start: CGPoint(x: ledgeRect.midX, y: ledgeRect.maxY),
+        end: CGPoint(x: ledgeRect.midX, y: ledgeRect.minY),
+        options: []
+    )
+
+    let specH = ledgeH * (small ? 0.30 : 0.24)
+    let specRect = CGRect(
+        x: ledgeRect.minX + ledgeH * 0.7,
+        y: ledgeRect.maxY - ledgeH * 0.66,
+        width: ledgeRect.width - ledgeH * 1.4,
+        height: specH
+    )
+    let specPath = CGPath(roundedRect: specRect, cornerWidth: specH / 2, cornerHeight: specH / 2, transform: nil)
+    ctx.addPath(specPath)
+    ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: small ? 0.85 : 0.65))
+    ctx.fillPath()
+    ctx.restoreGState()
+
+    ctx.addPath(ledgePath)
+    ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.38))
+    ctx.setLineWidth(max(1, cgSize * 0.005))
+    ctx.strokePath()
 
     ctx.restoreGState()
 
@@ -128,6 +160,67 @@ func renderIcon(size: Int) -> Data? {
 
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])
+}
+
+/// Draws one minimalist glass book spine: vertical light-to-deep gradient fill,
+/// a slim inner sheen along the left edge, and a faint white rim (large sizes only).
+func drawSpine(
+    _ ctx: CGContext,
+    rect: CGRect,
+    base: (CGFloat, CGFloat, CGFloat),
+    radius: CGFloat,
+    transform: CGAffineTransform?,
+    small: Bool,
+    size: CGFloat
+) {
+    func roundedPath(_ r: CGRect, _ radius: CGFloat) -> CGPath {
+        if let transform {
+            var t = transform
+            return CGPath(roundedRect: r, cornerWidth: radius, cornerHeight: radius, transform: &t)
+        }
+        return CGPath(roundedRect: r, cornerWidth: radius, cornerHeight: radius, transform: nil)
+    }
+    let path = roundedPath(rect, radius)
+
+    func tint(_ c: CGFloat, _ t: CGFloat) -> CGFloat { c + (1 - c) * t }
+    let colors = [
+        CGColor(red: tint(base.0, 0.32), green: tint(base.1, 0.32), blue: tint(base.2, 0.32), alpha: 0.97),
+        CGColor(red: base.0 * 0.86, green: base.1 * 0.86, blue: base.2 * 0.86, alpha: 0.97)
+    ] as CFArray
+    let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1])!
+
+    ctx.saveGState()
+    ctx.addPath(path)
+    ctx.clip()
+    ctx.drawLinearGradient(
+        grad,
+        start: CGPoint(x: rect.midX, y: rect.maxY),
+        end: CGPoint(x: rect.midX, y: rect.minY),
+        options: []
+    )
+
+    if !small {
+        // Inner glass sheen
+        let sheenW = rect.width * 0.18
+        let sheenRect = CGRect(
+            x: rect.minX + rect.width * 0.17,
+            y: rect.minY + rect.height * 0.16,
+            width: sheenW,
+            height: rect.height * 0.68
+        )
+        let sheenPath = roundedPath(sheenRect, sheenW / 2)
+        ctx.addPath(sheenPath)
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.30))
+        ctx.fillPath()
+    }
+    ctx.restoreGState()
+
+    if !small {
+        ctx.addPath(path)
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.20))
+        ctx.setLineWidth(max(1, size * 0.0035))
+        ctx.strokePath()
+    }
 }
 
 let entries: [(String, Int)] = [

@@ -300,6 +300,19 @@ struct ShelfPopoverView: View {
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(store.isFull ? Color.orange : Color.secondary)
 
+            // Quiet capacity bar: one mini spine per shelf slot
+            HStack(spacing: 1.5) {
+                ForEach(0..<ShelfStore.maxItems, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 0.8, style: .continuous)
+                        .fill(
+                            index < store.items.count
+                                ? store.items[index].accent.color.opacity(0.88)
+                                : (colorScheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.10))
+                        )
+                        .frame(width: 1.6, height: 8.5)
+                }
+            }
+
             Spacer()
 
             HeaderIconButton(
@@ -316,10 +329,10 @@ struct ShelfPopoverView: View {
             HeaderIconButton(
                 systemName: ui.composerMode != nil ? "xmark" : "plus",
                 helpText: store.isStorageBlocked && ui.composerMode == nil
-                    ? "Saved pins could not be read"
+                    ? "Your shelf file could not be read"
                     : (store.isFull && ui.composerMode == nil
                         ? "Shelf is full (20/20)"
-                        : (ui.composerMode != nil ? "Close editor (Esc)" : "New Pin (⌘N)")),
+                        : (ui.composerMode != nil ? "Close editor (Esc)" : "Add to Shelf (⌘N)")),
                 isActive: ui.composerMode != nil,
                 isDisabled: (store.isFull || store.isStorageBlocked) && ui.composerMode == nil
             ) {
@@ -379,11 +392,11 @@ struct ShelfPopoverView: View {
                 .font(.system(size: 18, weight: .light))
                 .foregroundStyle(Color.orange)
 
-            Text("Couldn't read saved pins")
+            Text("Couldn't read your shelf")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(Color.primary)
 
-            Text(store.loadError ?? "pins.json could not be read and was left untouched.")
+            Text(store.loadError ?? "Your shelf file could not be read and was left untouched.")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.secondary)
                 .multilineTextAlignment(.center)
@@ -403,7 +416,7 @@ struct ShelfPopoverView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .help("Try reading pins.json again")
+                .help("Try reading your shelf file again")
 
                 Button {
                     store.backupAndResetStorage()
@@ -418,7 +431,7 @@ struct ShelfPopoverView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .help("Copy pins.json to a timestamped backup, then start a fresh shelf")
+                .help("Copy your shelf file to a timestamped backup, then start a fresh shelf")
             }
             .padding(.top, 2)
         }
@@ -428,15 +441,15 @@ struct ShelfPopoverView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: 8) {
-            Image(systemName: "bookmark")
+            Image(systemName: "books.vertical")
                 .font(.system(size: 18, weight: .light))
                 .foregroundStyle(Color.secondary.opacity(0.75))
 
-            Text("No pins yet")
+            Text("Your shelf is empty")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(Color.primary)
 
-            Text("Pin up to 20 links, emails, or snippets for instant copy.")
+            Text("Keep up to 20 go-to links & snippets within reach.")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.secondary)
                 .multilineTextAlignment(.center)
@@ -448,7 +461,7 @@ struct ShelfPopoverView: View {
                         ui.composerMode = .add(prefill: nil)
                     }
                 } label: {
-                    Text("+ New Pin")
+                    Text("+ Add to Shelf")
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 10)
@@ -464,7 +477,7 @@ struct ShelfPopoverView: View {
                             ui.composerMode = .add(prefill: clip)
                         }
                     } label: {
-                        Text("Pin Clipboard")
+                        Text("Shelve Clipboard")
                             .font(.system(size: 11.5, weight: .medium))
                             .foregroundStyle(Color.primary)
                             .padding(.horizontal, 10)
@@ -484,7 +497,7 @@ struct ShelfPopoverView: View {
 
     private var noMatchesView: some View {
         VStack(spacing: 4) {
-            Text("No matching pins")
+            Text("Nothing on your shelf matches")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Color.secondary)
             Text("Press Esc to clear filter")
@@ -526,7 +539,7 @@ struct ShelfPopoverView: View {
                     .help("Try saving again")
                 }
             } else if let deleted = store.lastDeleted {
-                Text("Removed \"\(deleted.item.label)\"")
+                Text("Taken off shelf: \"\(deleted.item.label)\"")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.secondary)
                     .lineLimit(1)
@@ -560,7 +573,7 @@ struct ShelfPopoverView: View {
 
     private var idleFooterText: String {
         if store.items.isEmpty {
-            return hotKeyManager.preset == .off ? "⌘N to add a pin" : "\(hotKeyManager.preset.displayLabel) to open · ⌘N to add"
+            return hotKeyManager.preset == .off ? "⌘N to add to shelf" : "\(hotKeyManager.preset.displayLabel) to open · ⌘N to add"
         }
         return hotKeyManager.preset == .off
             ? "Hover to peek · Type to filter"

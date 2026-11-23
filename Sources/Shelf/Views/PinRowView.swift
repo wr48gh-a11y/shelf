@@ -35,7 +35,7 @@ struct PinRowView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // Whisper colored dot (morphs into checkmark on copy)
+            // Mini book spine (tips out on hover, morphs into checkmark on copy)
             ZStack {
                 if isCopied {
                     Image(systemName: "checkmark")
@@ -43,13 +43,15 @@ struct PinRowView: View {
                         .foregroundStyle(Color.green)
                         .transition(.scale.combined(with: .opacity))
                 } else {
-                    Circle()
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                         .fill(item.accent.color)
-                        .frame(width: 6.5, height: 6.5)
+                        .frame(width: 3.2, height: 13)
                         .shadow(
-                            color: isHighlighted ? item.accent.color.opacity(0.55) : .clear,
-                            radius: 3
+                            color: isHighlighted ? item.accent.color.opacity(0.5) : .clear,
+                            radius: 3.5
                         )
+                        .rotationEffect(.degrees(isHighlighted ? -10 : 0), anchor: .bottom)
+                        .animation(.spring(response: 0.24, dampingFraction: 0.72), value: isHighlighted)
                         .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -82,12 +84,12 @@ struct PinRowView: View {
                     }
                     MicroIconButton(
                         systemName: "pencil",
-                        helpText: "Edit pin",
+                        helpText: "Edit on shelf",
                         action: onEdit
                     )
                     MicroIconButton(
                         systemName: "xmark",
-                        helpText: "Remove pin",
+                        helpText: "Take off shelf",
                         isDestructive: true,
                         action: onDelete
                     )

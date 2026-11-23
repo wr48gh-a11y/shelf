@@ -75,7 +75,7 @@ final class ShelfAppDelegate: NSObject, NSApplicationDelegate {
         button.action = #selector(handleStatusBarClick(_:))
         button.target = self
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        button.toolTip = "Shelf — Quick-copy bookmarks"
+        button.toolTip = "Shelf — Your top 20 go-to links & snippets"
     }
 
     private func setStatusIcon(copied: Bool) {
@@ -88,7 +88,7 @@ final class ShelfAppDelegate: NSObject, NSApplicationDelegate {
             button.image = img
         } else {
             let config = NSImage.SymbolConfiguration(pointSize: 13.5, weight: .medium)
-            let img = NSImage(systemSymbolName: "bookmark.fill", accessibilityDescription: "Shelf")?
+            let img = NSImage(systemSymbolName: "books.vertical.fill", accessibilityDescription: "Shelf")?
                 .withSymbolConfiguration(config)
             img?.isTemplate = true
             button.image = img
@@ -113,7 +113,7 @@ final class ShelfAppDelegate: NSObject, NSApplicationDelegate {
         openItem.target = self
         menu.addItem(openItem)
 
-        let newItem = NSMenuItem(title: "New Pin…", action: #selector(menuNewPin), keyEquivalent: "")
+        let newItem = NSMenuItem(title: "Add to Shelf…", action: #selector(menuNewPin), keyEquivalent: "")
         newItem.target = self
         newItem.isEnabled = !store.isFull && !store.isStorageBlocked
         menu.addItem(newItem)
@@ -348,7 +348,7 @@ final class ShelfAppDelegate: NSObject, NSApplicationDelegate {
                     NSApp.terminate(nil)
                     return nil
                 }
-                // ⌘N: New Pin
+                // ⌘N: Add to Shelf
                 if chars == "n" {
                     if !store.isFull && !store.isStorageBlocked {
                         withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {

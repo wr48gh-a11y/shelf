@@ -72,7 +72,7 @@ struct PinComposerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack {
-                Text(editingItem == nil ? "New Pin" : "Edit Pin")
+                Text(editingItem == nil ? "Add to Shelf" : "Edit on Shelf")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.secondary)
                 Spacer()
@@ -152,7 +152,7 @@ struct PinComposerView: View {
                     }
                 }
 
-            // Inline persistence error: input is preserved so Pin!/Save can be retried
+            // Inline persistence error: input is preserved so Shelve/Save can be retried
             if let saveErrorText {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -165,7 +165,7 @@ struct PinComposerView: View {
                 }
             }
 
-            // Bottom row: Accent dot picker + Cancel / Save
+            // Bottom row: Accent spine picker + Cancel / Shelve or Save
             HStack(spacing: 6) {
                 HStack(spacing: 5) {
                     ForEach(WhisperAccent.allCases) { option in
@@ -173,20 +173,23 @@ struct PinComposerView: View {
                             accent = option
                             userPickedAccent = true
                         } label: {
-                            Circle()
+                            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                                 .fill(option.color)
-                                .frame(width: 9, height: 9)
+                                .frame(width: 4, height: 12)
                                 .overlay(
-                                    Circle()
-                                        .strokeBorder(Color.primary.opacity(accent == option ? 0.85 : 0), lineWidth: 1.5)
-                                        .frame(width: 13, height: 13)
+                                    // Subtle selection ring hugging the spine
+                                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                                        .strokeBorder(Color.primary.opacity(accent == option ? 0.45 : 0), lineWidth: 1)
+                                        .padding(-2.5)
                                 )
-                                .frame(width: 15, height: 15)
+                                .rotationEffect(.degrees(accent == option ? -8 : 0), anchor: .bottom)
+                                .frame(width: 13, height: 15)
                         }
                         .buttonStyle(.plain)
                         .help(option.label)
                     }
                 }
+                .animation(.spring(response: 0.24, dampingFraction: 0.72), value: accent)
 
                 Spacer()
 
@@ -202,7 +205,7 @@ struct PinComposerView: View {
                 Button {
                     commit()
                 } label: {
-                    Text(editingItem == nil ? "Pin" : "Save")
+                    Text(editingItem == nil ? "Shelve" : "Save")
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 10)
@@ -241,7 +244,7 @@ struct PinComposerView: View {
         if onSave(label, value, accent) {
             saveErrorText = nil
         } else {
-            saveErrorText = "Couldn't save. Your input is kept — try again."
+            saveErrorText = "Couldn't save to shelf. Your input is kept — try again."
         }
     }
 

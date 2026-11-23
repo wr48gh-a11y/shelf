@@ -216,14 +216,14 @@ final class ShelfStore {
             try FileManager.default.copyItem(at: storageURL, to: backupURL)
         } catch {
             // Backup failed: keep the original untouched and stay blocked.
-            loadError = "Backup failed — original pins.json was left untouched."
+            loadError = "Backup failed — original shelf file left untouched."
             return false
         }
         do {
             try FileManager.default.removeItem(at: storageURL)
         } catch {
             // Preserve the completed backup and keep storage blocked until the old file is removed.
-            loadError = "Backup saved, but old pins.json could not be removed."
+            loadError = "Backup saved, but old shelf file could not be removed."
             return false
         }
         loadError = nil
@@ -265,7 +265,7 @@ final class ShelfStore {
             // The file exists but is unreadable or corrupted. Keep items empty and
             // refuse to overwrite it so Retry / Back Up & Reset can recover it.
             items = []
-            loadError = "Could not read saved pins. Original file preserved."
+            loadError = "Could not read your shelf. Original file preserved."
         }
     }
 
@@ -285,7 +285,7 @@ final class ShelfStore {
         } catch {
             // Surface the failure: callers keep the change in memory (or revert it)
             // and the Whisper footer offers a Retry until a save succeeds.
-            saveError = "Couldn't save pins."
+            saveError = "Couldn't save shelf."
             return false
         }
     }

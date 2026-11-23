@@ -161,13 +161,13 @@ struct SettingsDrawerView: View {
     private func exportPins() {
         guard let data = store.exportJSON() else { return }
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "shelf-pins.json"
+        panel.nameFieldStringValue = "shelf-backup.json"
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 try data.write(to: url, options: .atomic)
-                transferStatus = "Exported \(store.items.count) pins."
+                transferStatus = "Exported \(store.items.count) shelf item\(store.items.count == 1 ? "" : "s")."
             } catch {
                 transferStatus = "Export failed."
             }
@@ -183,16 +183,16 @@ struct SettingsDrawerView: View {
             let data = try Data(contentsOf: url)
             let result = store.importJSON(data)
             if result.added > 0 && !result.saved {
-                // Pins exist in memory only; do not acknowledge a clean import.
+                // Items exist in memory only; do not acknowledge a clean import.
                 transferStatus = "Imported \(result.added) in memory, but saving failed. Use Retry in the footer."
             } else if result.added > 0 {
-                transferStatus = "Imported \(result.added) pin\(result.added == 1 ? "" : "s")."
+                transferStatus = "Imported \(result.added) item\(result.added == 1 ? "" : "s") to your shelf."
             } else if store.isStorageBlocked {
-                transferStatus = "Import unavailable: saved pins could not be read."
+                transferStatus = "Import unavailable: your shelf file could not be read."
             } else if !result.saved {
-                transferStatus = "Import failed: the file is not valid Shelf pins JSON."
+                transferStatus = "Import failed: not a valid Shelf JSON file."
             } else {
-                transferStatus = "No new pins imported."
+                transferStatus = "No new items imported."
             }
         } catch {
             transferStatus = "Import failed: could not read the selected file."
