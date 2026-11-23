@@ -115,7 +115,7 @@ final class ShelfAppDelegate: NSObject, NSApplicationDelegate {
 
         let newItem = NSMenuItem(title: "New Pin…", action: #selector(menuNewPin), keyEquivalent: "")
         newItem.target = self
-        newItem.isEnabled = !store.isFull
+        newItem.isEnabled = !store.isFull && !store.isStorageBlocked
         menu.addItem(newItem)
 
         menu.addItem(.separator())
@@ -312,6 +312,7 @@ final class ShelfAppDelegate: NSObject, NSApplicationDelegate {
         // Escape always cascades cleanly: close composer/settings -> clear filter -> close panel
         if event.keyCode == 53 {
             if ui.composerMode != nil {
+                store.clearTransientSaveError()
                 withAnimation(.spring(response: 0.22, dampingFraction: 0.88)) {
                     ui.composerMode = nil
                 }
@@ -349,7 +350,7 @@ final class ShelfAppDelegate: NSObject, NSApplicationDelegate {
                 }
                 // ⌘N: New Pin
                 if chars == "n" {
-                    if !store.isFull {
+                    if !store.isFull && !store.isStorageBlocked {
                         withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {
                             ui.showSettings = false
                             ui.composerMode = .add(prefill: nil)
@@ -368,7 +369,7 @@ final class ShelfAppDelegate: NSObject, NSApplicationDelegate {
                 // ⌘Z: Undo Delete
                 if chars == "z", store.lastDeleted != nil {
                     withAnimation(.spring(response: 0.22, dampingFraction: 0.86)) {
-                        store.undoDelete()
+                        _ = store.undoDelete()
                     }
                     return nil
                 }

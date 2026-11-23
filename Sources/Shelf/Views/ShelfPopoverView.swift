@@ -135,12 +135,18 @@ struct ShelfPopoverView: View {
                             editingItem: nil,
                             prefillValue: prefill,
                             onSave: { label, value, accent in
-                                withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
-                                    _ = store.add(label: label, value: value, accent: accent)
-                                    ui.composerMode = nil
+                                let saved = store.add(label: label, value: value, accent: accent)
+                                if saved {
+                                    withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+                                        ui.composerMode = nil
+                                    }
                                 }
+                                // On failure the composer stays open with the input
+                                // intact and shows the inline error for an immediate retry.
+                                return saved
                             },
                             onCancel: {
+                                store.clearTransientSaveError()
                                 withAnimation(.spring(response: 0.22, dampingFraction: 0.88)) {
                                     ui.composerMode = nil
                                 }
@@ -150,12 +156,16 @@ struct ShelfPopoverView: View {
                         PinComposerView(
                             editingItem: item,
                             onSave: { label, value, accent in
-                                withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
-                                    store.update(id: item.id, label: label, value: value, accent: accent)
-                                    ui.composerMode = nil
+                                let saved = store.update(id: item.id, label: label, value: value, accent: accent)
+                                if saved {
+                                    withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+                                        ui.composerMode = nil
+                                    }
                                 }
+                                return saved
                             },
                             onCancel: {
+                                store.clearTransientSaveError()
                                 withAnimation(.spring(response: 0.22, dampingFraction: 0.88)) {
                                     ui.composerMode = nil
                                 }
@@ -169,8 +179,10 @@ struct ShelfPopoverView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // Main Pins List or Empty State
-            if store.items.isEmpty && ui.composerMode == nil && !ui.showSettings {
+            // Main Pins List, Load-Failure Recovery, or Empty State
+            if store.isStorageBlocked && ui.composerMode == nil && !ui.showSettings {
+                storageBlockedView
+            } else if store.items.isEmpty && ui.composerMode == nil && !ui.showSettings {
                 emptyStateView
             } else if visibleItems.isEmpty && !ui.filterText.isEmpty {
                 noMatchesView
@@ -303,17 +315,20 @@ struct ShelfPopoverView: View {
 
             HeaderIconButton(
                 systemName: ui.composerMode != nil ? "xmark" : "plus",
-                helpText: store.isFull && ui.composerMode == nil
-                    ? "Shelf is full (20/20)"
-                    : (ui.composerMode != nil ? "Close editor (Esc)" : "New Pin (⌘N)"),
+                helpText: store.isStorageBlocked && ui.composerMode == nil
+                    ? "Saved pins could not be read"
+                    : (store.isFull && ui.composerMode == nil
+                        ? "Shelf is full (20/20)"
+                        : (ui.composerMode != nil ? "Close editor (Esc)" : "New Pin (⌘N)")),
                 isActive: ui.composerMode != nil,
-                isDisabled: store.isFull && ui.composerMode == nil
+                isDisabled: (store.isFull || store.isStorageBlocked) && ui.composerMode == nil
             ) {
                 withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {
                     ui.showSettings = false
                     if ui.composerMode != nil {
+                        store.clearTransientSaveError()
                         ui.composerMode = nil
-                    } else if !store.isFull {
+                    } else if !store.isFull && !store.isStorageBlocked {
                         ui.composerMode = .add(prefill: nil)
                     }
                 }
@@ -355,6 +370,60 @@ struct ShelfPopoverView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
         )
+    }
+
+    /// Whisper recovery panel shown when pins.json exists but could not be read.
+    private var storageBlockedView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 18, weight: .light))
+                .foregroundStyle(Color.orange)
+
+            Text("Couldn't read saved pins")
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(Color.primary)
+
+            Text(store.loadError ?? "pins.json could not be read and was left untouched.")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 6) {
+                Button {
+                    store.retryLoad()
+                } label: {
+                    Text("Retry")
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(Color.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule().fill(colorScheme == .dark ? Color.white.opacity(0.11) : Color.black.opacity(0.07))
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Try reading pins.json again")
+
+                Button {
+                    store.backupAndResetStorage()
+                } label: {
+                    Text("Back Up & Reset")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(Color.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule().fill(Color.orange.opacity(colorScheme == .dark ? 0.16 : 0.11))
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Copy pins.json to a timestamped backup, then start a fresh shelf")
+            }
+            .padding(.top, 2)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 20)
     }
 
     private var emptyStateView: some View {
@@ -436,6 +505,26 @@ struct ShelfPopoverView: View {
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(Color.green)
                     .lineLimit(1)
+            } else if store.saveError != nil {
+                // Persistence failed: surface it instead of acknowledging silently.
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Color.orange)
+                Text(store.saveError ?? "")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Color.orange)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 4)
+                if store.hasUnsavedChanges {
+                    Button("Retry") {
+                        store.retrySave()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.orange)
+                    .help("Try saving again")
+                }
             } else if let deleted = store.lastDeleted {
                 Text("Removed \"\(deleted.item.label)\"")
                     .font(.system(size: 11))
@@ -445,7 +534,7 @@ struct ShelfPopoverView: View {
                 Spacer(minLength: 4)
                 Button("Undo") {
                     withAnimation(.spring(response: 0.22, dampingFraction: 0.86)) {
-                        store.undoDelete()
+                        _ = store.undoDelete()
                     }
                 }
                 .buttonStyle(.plain)

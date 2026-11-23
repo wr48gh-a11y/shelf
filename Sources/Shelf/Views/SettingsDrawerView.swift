@@ -178,10 +178,24 @@ struct SettingsDrawerView: View {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url,
-           let data = try? Data(contentsOf: url) {
-            let count = store.importJSON(data)
-            transferStatus = count > 0 ? "Imported \(count) pin\(count == 1 ? "" : "s")." : "No new pins imported."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let result = store.importJSON(data)
+            if result.added > 0 && !result.saved {
+                // Pins exist in memory only; do not acknowledge a clean import.
+                transferStatus = "Imported \(result.added) in memory, but saving failed. Use Retry in the footer."
+            } else if result.added > 0 {
+                transferStatus = "Imported \(result.added) pin\(result.added == 1 ? "" : "s")."
+            } else if store.isStorageBlocked {
+                transferStatus = "Import unavailable: saved pins could not be read."
+            } else if !result.saved {
+                transferStatus = "Import failed: the file is not valid Shelf pins JSON."
+            } else {
+                transferStatus = "No new pins imported."
+            }
+        } catch {
+            transferStatus = "Import failed: could not read the selected file."
         }
     }
 }

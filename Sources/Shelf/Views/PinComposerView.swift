@@ -3,13 +3,16 @@ import SwiftUI
 
 struct PinComposerView: View {
     let editingItem: PinItem?
-    let onSave: (_ label: String, _ value: String, _ accent: WhisperAccent) -> Void
+    /// Returns false when the pin could not be persisted; the composer then
+    /// stays open with the user's input intact and shows an inline error.
+    let onSave: (_ label: String, _ value: String, _ accent: WhisperAccent) -> Bool
     let onCancel: () -> Void
 
     @State private var label: String
     @State private var value: String
     @State private var accent: WhisperAccent
     @State private var userPickedAccent: Bool
+    @State private var saveErrorText: String? = nil
 
     @FocusState private var focusedField: Field?
     @Environment(\.colorScheme) private var colorScheme
@@ -22,7 +25,7 @@ struct PinComposerView: View {
     init(
         editingItem: PinItem? = nil,
         prefillValue: String? = nil,
-        onSave: @escaping (_ label: String, _ value: String, _ accent: WhisperAccent) -> Void,
+        onSave: @escaping (_ label: String, _ value: String, _ accent: WhisperAccent) -> Bool,
         onCancel: @escaping () -> Void
     ) {
         self.editingItem = editingItem
@@ -109,6 +112,9 @@ struct PinComposerView: View {
                         )
                 )
                 .focused($focusedField, equals: .label)
+                .onChange(of: label) { _, _ in
+                    saveErrorText = nil
+                }
                 .onSubmit {
                     if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         focusedField = .value
@@ -134,6 +140,7 @@ struct PinComposerView: View {
                 )
                 .focused($focusedField, equals: .value)
                 .onChange(of: value) { _, newValue in
+                    saveErrorText = nil
                     if !userPickedAccent {
                         let kind = PinKind.detect(from: newValue)
                         accent = WhisperAccent.defaultAccent(for: kind)
@@ -144,6 +151,19 @@ struct PinComposerView: View {
                         commit()
                     }
                 }
+
+            // Inline persistence error: input is preserved so Pin!/Save can be retried
+            if let saveErrorText {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(Color.orange)
+                    Text(saveErrorText)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
 
             // Bottom row: Accent dot picker + Cancel / Save
             HStack(spacing: 6) {
@@ -218,7 +238,11 @@ struct PinComposerView: View {
     }
 
     private func commit() {
-        onSave(label, value, accent)
+        if onSave(label, value, accent) {
+            saveErrorText = nil
+        } else {
+            saveErrorText = "Couldn't save. Your input is kept — try again."
+        }
     }
 
     private func pasteFromClipboard() {

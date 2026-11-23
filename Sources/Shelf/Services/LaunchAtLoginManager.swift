@@ -32,8 +32,13 @@ final class LaunchAtLoginManager {
             }
             refresh()
         } catch {
-            statusNote = "Move Shelf.app to Applications to enable"
             refresh()
+            // refresh() may already show a more specific note (e.g. approval pending)
+            if statusNote == nil {
+                statusNote = enabled
+                    ? "Could not enable Launch at Login (move Shelf.app to Applications)"
+                    : "Could not disable Launch at Login"
+            }
         }
     }
 }
